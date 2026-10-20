@@ -3,69 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>약동학 기반 영남고 카페인 분석 및 학습 최적화 시스템</title>
+  <title>영남고 카페인 섭취 실태 및 학습 최적화 대시보드</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <!-- Chart.js for 꺾은선 그래프 -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Firebase SDK (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2563eb">
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased pb-12">
-  <div class="max-w-md mx-auto p-4 sm:p-6">
+<body class="bg-slate-50 text-slate-800 font-sans antialiased pb-16">
+  <div class="max-w-xl mx-auto p-4 sm:p-6">
     
     <!-- 헤더 -->
     <header class="mb-6 text-center">
-      <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full mb-2">YNHS MVP v2.5 Pharmacokinetics</span>
-      <h1 class="text-xl font-bold text-slate-900">영남고 체내 카페인 분석 및 학습 최적화</h1>
-      <p class="text-xs text-slate-500 mt-1">확률과 통계 실태 조사 기반 · 1차 반감기 모델 적용</p>
+      <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full mb-2">YNHS 확통 프로젝트 &middot; 모듈식 분석 시스템</span>
+      <h1 class="text-xl font-bold text-slate-900">청소년 카페인 섭취 및 학습 최적화 대시보드</h1>
+      <p class="text-xs text-slate-500 mt-1">1차 반감기 모델($C_0 \cdot (1/2)^{t/T}$) 및 익명 통계 수집</p>
     </header>
 
-    <!-- 입력 카드 -->
-    <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-100 mb-6">
-      <h2 class="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-blue-600"></span> 섭취 및 신체 정보 입력
-      </h2>
-
-      <div class="space-y-4">
+    <!-- 1. 사용자 및 환경 설정 -->
+    <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-100 mb-5">
+      <h2 class="text-sm font-bold text-slate-700 mb-3">1. 기본 신체 및 수면 정보</h2>
+      <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">체중 (kg)</label>
-          <input type="number" id="weight" value="60" step="0.1" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <label class="block text-xs font-medium text-slate-600 mb-1">체중 ($W$, kg)</label>
+          <input type="number" id="weight" value="60" step="0.1" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
         </div>
-
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">카페인 총 섭취량 (mg)</label>
-          <select id="preset-drink" class="w-full mb-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 focus:outline-none">
-            <option value="">-- 음료 선택 또는 직접 입력 --</option>
+          <label class="block text-xs font-medium text-slate-600 mb-1">목표 취침 시각</label>
+          <input type="time" id="sleep-time" value="23:00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 모듈 2: 여러 음료(항목) 추가 칸 -->
+    <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-100 mb-5">
+      <h2 class="text-sm font-bold text-slate-700 mb-3">2. 섭취 음료 목록 추가 (모듈 2)</h2>
+      
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">음료 종류 선택</label>
+          <select id="drink-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
             <option value="150">에너지음료 1캔 (약 150mg)</option>
             <option value="100">아메리카노 1잔 (약 100mg)</option>
             <option value="60">녹차/홍차 (약 60mg)</option>
             <option value="30">콜라/초콜릿 (약 30mg)</option>
+            <option value="custom">직접 입력</option>
           </select>
-          <input type="number" id="caffeine" value="150" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">섭취 시각</label>
-            <input type="time" id="intake-time" value="14:00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none">
+            <label class="block text-xs font-medium text-slate-600 mb-1">카페인 양 (mg)</label>
+            <input type="number" id="drink-mg" value="150" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">목표 취침 시각</label>
-            <input type="time" id="sleep-time" value="23:00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none">
+            <label class="block text-xs font-medium text-slate-600 mb-1">섭취 시각</label>
+            <input type="time" id="drink-time" value="14:00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
           </div>
         </div>
-
-        <button onclick="calculateCaffeine()" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm shadow-blue-200">
-          약동학 모델 시뮬레이션 실행
+        <button onclick="addDrinkItem()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 rounded-xl text-xs transition">
+          + 목록에 음료 추가하기
         </button>
       </div>
+
+      <!-- 추가된 음료 리스트 테이블/박스 -->
+      <div id="drink-list-container" class="border border-slate-100 rounded-xl p-3 bg-slate-50 text-xs space-y-2">
+        <p class="text-slate-400 text-center">추가된 음료가 없습니다. 위에서 음료를 추가해주세요.</p>
+      </div>
+
+      <button onclick="runSimulation()" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm shadow-blue-200">
+        종합 분석 및 통계 전송 실행
+      </button>
     </div>
 
-    <!-- 결과 리포트 대시보드 -->
+    <!-- 3. 결과 대시보드 (모듈 1, 3, 4) -->
     <div id="result-section" class="space-y-4 hidden">
       
-      <!-- 위험 수치 경고 카드 -->
+      <!-- 모듈 3: 위험도 및 총 섭취량 요약 카드 -->
       <div id="warning-card" class="rounded-2xl p-4 border transition">
         <div class="flex items-start gap-3">
           <div id="warning-icon" class="text-xl">⚠️</div>
@@ -76,33 +93,33 @@
         </div>
       </div>
 
-      <!-- 체내 잔류량 실시간 트래킹 (그래프) -->
+      <!-- 모듈 1: 체내 잔류량 실시간 꺾은선 그래프 -->
       <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-100">
-        <h3 class="text-sm font-bold text-slate-700 mb-2">📈 시간 경과에 따른 체내 잔류량 추이</h3>
-        <p class="text-xs text-slate-400 mb-4">반감기 4.5시간 기준 1차 지수 감소 곡선</p>
+        <h3 class="text-sm font-bold text-slate-700 mb-1">📈 체내 잔류 카페인 혈중 농도 추이</h3>
+        <p class="text-xs text-slate-400 mb-4">1차 지수 감소 반감기 모델 ($T_{1/2} = 4.5시간$)</p>
         <div class="relative h-48">
           <canvas id="caffeineChart"></canvas>
         </div>
       </div>
 
-      <!-- 최적 학습 타이밍 & 수면 임계점 가이드 -->
+      <!-- 모듈 4: 집중력(골든타임) 및 수면 가이드 -->
       <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-100 space-y-3">
-        <h3 class="text-sm font-bold text-slate-700">🎯 맞춤형 학습 및 수면 가이드</h3>
+        <h3 class="text-sm font-bold text-slate-700">🎯 집중력 골든타임 및 수면 리스크 가이드</h3>
         <div class="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
-          <span class="text-xs font-semibold text-blue-700 block mb-0.5">⚡ 골든타임 (아데노신 수용체 차단 효과 구간)</span>
+          <span class="text-xs font-semibold text-blue-700 block mb-0.5">⚡ 최고 집중력 골든타임 (아데노신 수용체 차단 피크)</span>
           <p id="golden-time-text" class="text-xs text-slate-600"></p>
         </div>
         <div class="p-3 bg-amber-50/50 rounded-xl border border-amber-100">
-          <span class="text-xs font-semibold text-amber-700 block mb-0.5">🌙 수면 방해 임계점 (잔류량 30mg 기준)</span>
+          <span class="text-xs font-semibold text-amber-700 block mb-0.5">🌙 취침 전 잔류량 평가 (임계점 30mg 기준)</span>
           <p id="sleep-threshold-text" class="text-xs text-slate-600"></p>
         </div>
       </div>
 
-      <!-- 확률과 통계 보고서 연계 인사이트 -->
+      <!-- PWA + Firebase 익명 집계 통계 현황 -->
       <div class="bg-slate-900 text-slate-100 rounded-2xl p-5 text-xs space-y-2">
-        <h4 class="font-bold text-blue-400 flex items-center gap-1.5">📊 영남고 실태 조사 데이터 인사이트</h4>
-        <p class="text-slate-300 leading-relaxed">
-          본 시스템은 영남고 학생들의 실제 음료 섭취 패턴과 확률·통계 분석 결과를 바탕으로, 단순 낙인이 아닌 생체 데이터 기반의 자가 조절을 돕기 위해 설계되었습니다.
+        <h4 class="font-bold text-blue-400 flex items-center gap-1.5">🔥 Firebase 익명 실태 조사 통계 현황</h4>
+        <p id="stats-summary" class="text-slate-300 leading-relaxed">
+          데이터 동기화 중... (개인정보는 저장되지 않으며 날짜별 섭취 유형 카운트만 익명 집계됩니다.)
         </p>
       </div>
 
@@ -110,48 +127,119 @@
   </div>
 
   <script>
-    document.getElementById('preset-drink').addEventListener('change', function() {
-      if(this.value) {
-        document.getElementById('caffeine').value = this.value;
+    // Firebase 설정 (본인의 Firebase 콘솔 설정값으로 교체 필요)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID"
+    };
+
+    // Firebase 초기화 (설정값이 입력되지 않아도 로컬 시뮬레이션은 정상 작동함)
+    try {
+      firebase.initializeApp(firebaseConfig);
+    } catch (e) {
+      console.log("Firebase 미설정 상태: 로컬 모드로 실행됩니다.");
+    }
+
+    // 음료 프리셋 연동
+    document.getElementById('drink-select').addEventListener('change', function() {
+      if(this.value !== 'custom') {
+        document.getElementById('drink-mg').value = this.value;
       }
     });
 
-    let myChart = null;
+    let drinkList = [];
 
-    function calculateCaffeine() {
-      const weight = parseFloat(document.getElementById('weight').value);
-      const c0 = parseFloat(document.getElementById('caffeine').value);
-      const intakeTimeStr = document.getElementById('intake-time').value;
-      const sleepTimeStr = document.getElementById('sleep-time').value;
+    function addDrinkItem() {
+      const mg = parseFloat(document.getElementById('drink-mg').value);
+      const time = document.getElementById('drink-time').value;
 
-      if (!weight || !c0) {
-        alert('체중과 카페인 양을 정확히 입력해주세요.');
+      if (!mg || mg <= 0) {
+        alert('올바른 카페인 양을 입력해주세요.');
         return;
       }
 
-      const maxLimit = 2.5 * weight;
-      const mgPerKg = c0 / weight;
-      const tHalf = 4.5;
-      
-      const hours = [];
-      const dataPoints = [];
-      
-      const [intakeHour, intakeMin] = intakeTimeStr.split(':').map(Number);
-      const intakeDecimal = intakeHour + intakeMin / 60;
-      
-      const [sleepHour, sleepMin] = sleepTimeStr.split(':').map(Number);
-      let sleepDecimal = sleepHour + sleepMin / 60;
-      if (sleepDecimal < intakeDecimal) sleepDecimal += 24; 
+      drinkList.push({ mg, time });
+      renderDrinkList();
+    }
 
-      for (let t = 0; t <= 16; t += 0.5) {
-        const remaining = c0 * Math.pow(0.5, t / tHalf);
-        hours.push(((intakeDecimal + t) % 24).toFixed(1) + '시');
-        dataPoints.push(Math.max(0, remaining.toFixed(1)));
+    function renderDrinkList() {
+      const container = document.getElementById('drink-list-container');
+      if (drinkList.length === 0) {
+        container.innerHTML = `<p class="text-slate-400 text-center">추가된 음료가 없습니다.</p>`;
+        return;
       }
 
-      const hoursToSleep = sleepDecimal - intakeDecimal;
-      const remainingAtSleep = c0 * Math.pow(0.5, hoursToSleep / tHalf);
+      container.innerHTML = drinkList.map((d, index) => `
+        <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200">
+          <span>음료 #${index + 1}: <b>${d.mg}mg</b> (${d.time} 섭취)</span>
+          <button onclick="removeDrink(${index})" class="text-rose-500 font-bold px-2 py-0.5">삭제</button>
+        </div>
+      `).join('');
+    }
 
+    function removeDrink(index) {
+      drinkList.splice(index, 1);
+      renderDrinkList();
+    }
+
+    let myChart = null;
+
+    function runSimulation() {
+      if (drinkList.length === 0) {
+        alert('분석할 음료를 최소 1개 이상 추가해주세요!');
+        return;
+      }
+
+      const weight = parseFloat(document.getElementById('weight').value);
+      const sleepTimeStr = document.getElementById('sleep-time').value;
+
+      // 총 섭취 카페인 계산 ($C_{total}$)
+      let totalCaffeine = drinkList.reduce((sum, d) => sum + d.mg, 0);
+      const maxLimit = 2.5 * weight; // 식약처 청소년 권장 상한 (2.5mg/kg)
+      const mgPerKg = totalCaffeine / weight;
+
+      // 반감기 모델 적용 (T_1/2 = 4.5시간)
+      const tHalf = 4.5;
+      const timeSteps = [];
+      const residualValues = [];
+
+      // 하루 24시간 타임라인 시뮬레이션 (0시 ~ 24시)
+      const hours = Array.from({length: 49}, (_, i) => i * 0.5); // 30분 단위
+
+      hours.forEach(h => {
+        let totalRemainingAtH = 0;
+        drinkList.forEach(d => {
+          const [dH, dM] = d.time.split(':').map(Number);
+          const intakeDecimal = dH + dM / 60;
+          let elapsed = h - intakeDecimal;
+          if (elapsed >= 0) {
+            // C(t) = C0 * (1/2)^(t / T_1/2)
+            totalRemainingAtH += d.mg * Math.pow(0.5, elapsed / tHalf);
+          }
+        });
+        timeSteps.push(Math.floor(h) + ':' + (h % 1 === 0 ? '00' : '30'));
+        residualValues.push(Math.max(0, totalRemainingAtH.toFixed(1)));
+      });
+
+      // 취침 시각 잔류량 계산
+      const [sH, sM] = sleepTimeStr.split(':').map(Number);
+      const sleepDecimal = sH + sM / 60;
+      let sleepResidual = 0;
+      drinkList.forEach(d => {
+        const [dH, dM] = d.time.split(':').map(Number);
+        const intakeDecimal = dH + dM / 60;
+        let elapsed = sleepDecimal - intakeDecimal;
+        if (elapsed > 0) {
+          sleepResidual += d.mg * Math.pow(0.5, elapsed / tHalf);
+        }
+      });
+
+      // UI 결과 반영
       document.getElementById('result-section').classList.remove('hidden');
 
       const warningCard = document.getElementById('warning-card');
@@ -159,39 +247,42 @@
       const warningTitle = document.getElementById('warning-title');
       const warningDesc = document.getElementById('warning-desc');
 
-      if (c0 > maxLimit || remainingAtSleep > 30) {
+      const isExceeded = totalCaffeine > maxLimit || sleepResidual > 30;
+
+      if (isExceeded) {
         warningCard.className = "rounded-2xl p-4 border bg-rose-50 border-rose-200 text-rose-900";
         warningIcon.innerHTML = "🚨";
-        warningTitle.innerText = "주의 필요: 권장 상한 또는 수면 임계점 초과";
-        warningDesc.innerText = `체중당 섭취량이 ${mgPerKg.toFixed(1)}mg/kg이며, 취침 시점 체내 잔류량이 수면 방해 임계점(30mg)을 초과하여 NREM 수면 진입을 방해할 수 있습니다.`;
+        warningTitle.innerText = `위험도 분석: 참고 상한 또는 수면 임계점 초과`;
+        warningDesc.innerText = `총 섭취량(${totalCaffeine}mg, ${mgPerKg.toFixed(1)}mg/kg)이 권장 상한(${maxLimit.toFixed(1)}mg)을 넘었거나 취침 시 잔류량(${sleepResidual.toFixed(1)}mg)이 30mg을 초과하여 수면 방해 우려가 있습니다.`;
       } else {
         warningCard.className = "rounded-2xl p-4 border bg-emerald-50 border-emerald-200 text-emerald-900";
         warningIcon.innerHTML = "✅";
-        warningTitle.innerText = "안전 범위 내 섭취";
-        warningDesc.innerText = `청소년 참고 상한(${maxLimit.toFixed(1)}mg) 이내이며, 취침 전 잔류량이 낮아 안정적인 수면과 학습 리듬 유지에 유리합니다.`;
+        warningTitle.innerText = `위험도 분석: 안전 범위 내 섭취`;
+        warningDesc.innerText = `총 섭취량이 안전 기준 이내이며, 취침 전 잔류량도 안정적입니다.`;
       }
 
       document.getElementById('golden-time-text').innerText = 
-        `섭취 후 1~2시간 사이 피크 타임에 아데노신 수용체가 차단되어 각성 효과가 극대화됩니다.`;
+        `첫 음료 섭취 후 약 1~2시간 사이 혈중 농도가 피크에 도달하여 아데노신 수용체가 차단되며 학습 집중력이 가장 높아지는 골든타임이 형성됩니다.`;
       
       document.getElementById('sleep-threshold-text').innerText = 
-        `취침 시각 기준 체내 예상 잔류량은 약 ${remainingAtSleep.toFixed(1)}mg 입니다. (기준치 30mg ${remainingAtSleep > 30 ? '초과 ⚠️' : '미만 안전 ✅'})`;
+        `목표 취침 시각(${sleepTimeStr}) 기준 예상 체내 잔류량은 약 ${sleepResidual.toFixed(1)}mg 입니다. (기준치 30mg ${sleepResidual > 30 ? '초과 ⚠️' : '안전 ✅'})`;
 
+      // Chart.js 꺾은선 그래프 렌더링
       const ctx = document.getElementById('caffeineChart').getContext('2d');
       if (myChart) myChart.destroy();
 
       myChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: hours.filter((_, i) => i % 2 === 0),
+          labels: timeSteps.filter((_, i) => i % 4 === 0), // 2시간 단위로 틱 표시
           datasets: [{
             label: '체내 잔류 카페인 (mg)',
-            data: dataPoints.filter((_, i) => i % 2 === 0),
+            data: residualValues.filter((_, i) => i % 4 === 0),
             borderColor: '#2563eb',
             backgroundColor: 'rgba(37, 99, 235, 0.05)',
-            borderWidth: 2,
+            borderWidth: 2.5,
             fill: true,
-            tension: 0.3,
+            tension: 0.35,
             pointRadius: 2
           }]
         },
@@ -205,6 +296,20 @@
           }
         }
       });
+
+      // Firebase 익명 통계 전송 (설정된 경우에만 작동)
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const category = isExceeded ? 'exceeded' : 'within';
+        const statsRef = firebase.database().ref(`yn_stats/${today}/${category}`);
+        statsRef.transaction((current) => (current || 0) + 1, () => {
+          document.getElementById('stats-summary').innerText = 
+            `[성공] 익명 통계 데이터가 Firebase DB에 안전하게 반영되었습니다. (날짜: ${today}, 분류: ${category === 'exceeded' ? '주의/초과군' : '안전군'})`;
+        });
+      } catch (e) {
+        document.getElementById('stats-summary').innerText = 
+          `[로컬 모드] Firebase 연동 키가 설정되지 않아 통계 전송은 시뮬레이션으로 대체되었습니다. (개인정보는 수집되지 않음)`;
+      }
     }
   </script>
 </body>
